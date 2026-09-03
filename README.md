@@ -25,7 +25,7 @@ merge unrelated devices.
 
 ```
 core/            Pure Kotlin/JVM. No Android dependency. Fully unit tested.
-  model/         BleAdvertisement, LocationBucket, Sighting
+  model/         BleAdvertisement, LocationBucket, Sighting, Geohash
   fingerprint/   DeviceFingerprint + FingerprintExtractor + FingerprintMatcher
   identity/      IdentityResolver — resolves rotating-MAC advertisements to a
                  stable TrackedIdentity via fingerprint similarity
@@ -38,7 +38,8 @@ core/            Pure Kotlin/JVM. No Android dependency. Fully unit tested.
 android-app/     Android app scaffold wiring core to the platform.
   scan/          BluetoothLeScanner -> BleAdvertisement mapping
   data/          Room persistence (identities survive app restart) +
-                 Wi-Fi-BSSID-based LocationBucketProvider
+                 CompositeLocationBucketProvider (GPS geohash, Wi-Fi BSSID
+                 fallback)
   service/       Foreground service keeping the scan alive
   ui/            Minimal Jetpack Compose device list (verdict badges)
 ```
@@ -65,11 +66,13 @@ three months).
 ## What's actually verified vs. not
 
 - **`core/` is real and tested.** `cd core && gradle test` compiles and runs
-  16 JUnit5 tests, including two end-to-end scenarios: a tracker with a
+  21 JUnit5 tests, including two end-to-end scenarios: a tracker with a
   rotating MAC that follows the user across 3 locations in 2 hours (resolves
   to one identity, verdict SUSPICIOUS), and a stationary device with a
-  rotating MAC seen 20 times at home over 20 days (verdict NORMAL). This
-  module has zero Android dependency and needs only a JDK to build/test.
+  rotating MAC seen 20 times at home over 20 days (verdict NORMAL). `Geohash`
+  is checked against the well-known Wikipedia worked example (`ezs42`) plus
+  round-trip and boundary tests. This module has zero Android dependency and
+  needs only a JDK to build/test.
 - **`android-app/` is written but unverified in this environment.** This
   sandbox has no Android SDK and its network policy blocks
   `dl.google.com` (Google's Maven repo, required for the Android Gradle
@@ -82,11 +85,24 @@ three months).
 
 ## Known limitations (v1, by design)
 
-- **Location bucketing is Wi-Fi-BSSID-based, not GPS.** No coordinates are
-  ever recorded. This means the correlation engine can't tell apart two
-  outdoor locations you visited off Wi-Fi — both fall into a single
-  "unknown" bucket in v1. A geohash/GPS-based `LocationBucketProvider` is a
-  natural v2 swap behind the existing interface.
+- **Location bucketing now prefers a GPS-derived geohash, falling back to
+  Wi-Fi BSSID.** `GpsLocationBucketProvider` reads only the last-known
+  location fix (no active requests, no continuous updates — this is a
+  bucketing hint, not a location-tracking feature) and buckets it into a
+  precision-7 geohash cell (~153m x 153m). Raw coordinates are never stored;
+  only the geohash string is. When no fix is cached yet,
+  `CompositeLocationBucketProvider` falls back to the Wi-Fi BSSID bucket, then
+  to "unknown." This closes the original gap (two outdoor, off-Wi-Fi
+  locations used to collapse into one bucket) at the cost of a real
+  permission-surface tradeoff: the app now requests `ACCESS_COARSE_LOCATION`
+  unconditionally, on every OS version, for this one purpose — separate from
+  the legacy pre-S `ACCESS_FINE_LOCATION` requirement for BLE scanning itself,
+  and separate from the `neverForLocation` flag on `BLUETOOTH_SCAN`, which
+  still holds (the scan itself still needs no location permission on
+  Android 12+). Geohash precision is a real privacy dial: 7 was chosen to
+  separate "the coffee shop" from "the grocery store next door" without the
+  bucket ever functioning as a precise position record; a coarser precision
+  trades location-based detection accuracy for less specific stored buckets.
 - **A truly featureless BLE advertisement (no service UUIDs, no manufacturer
   data, no name) can't be fingerprinted at all** and will spawn a fresh
   identity on every sighting rather than being tracked — an intentional

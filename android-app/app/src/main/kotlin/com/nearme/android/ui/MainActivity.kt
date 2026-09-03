@@ -74,6 +74,10 @@ private fun requiredPermissions(): Array<String> = buildList {
     } else {
         add(Manifest.permission.ACCESS_FINE_LOCATION)
     }
+    // Independent of the BLE-scan permission above: GpsLocationBucketProvider
+    // reads this to derive a coarse geohash place bucket. Requested on every
+    // OS version, since it's unrelated to the legacy pre-S BLE requirement.
+    add(Manifest.permission.ACCESS_COARSE_LOCATION)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         add(Manifest.permission.POST_NOTIFICATIONS)
     }

@@ -57,7 +57,7 @@ class IdentityStore private constructor(context: Context) {
         bleScanner = scanner
 
         val mapper = BleAdvertisementMapper(
-            locationBucketProvider = WifiBssidLocationBucketProvider(appContext),
+            locationBucketProvider = CompositeLocationBucketProvider(appContext),
             intervalTracker = AdvertisingIntervalTracker(),
         )
         val callback = NearMeScanCallback(mapper) { advertisement ->
