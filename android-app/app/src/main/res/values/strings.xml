@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NEARME</string>
+    <string name="scan_notification_title">NEARME is watching for repeat devices</string>
+    <string name="scan_notification_text">Scanning nearby BLE advertisements. Nothing leaves this device.</string>
+</resources>

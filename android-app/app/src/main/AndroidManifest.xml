@@ -1,0 +1,63 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      BLUETOOTH_SCAN keeps usesPermissionFlags="neverForLocation": the scan
+      itself works from advertisement fingerprints, not the device's own GPS
+      position, so it never needs location permission to function on
+      Android 12+. ACCESS_FINE_LOCATION below (maxSdkVersion 30) is the
+      unrelated legacy requirement pre-S devices impose on *any* BLE scan.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+
+    <!--
+      A second, independent use of location: GpsLocationBucketProvider reads
+      only the last-known fix (no active requests, no continuous updates) to
+      derive a coarse geohash "place" bucket for the correlation engine — this
+      is what lets it tell apart two outdoor locations that never touch a
+      known Wi-Fi network. COARSE is requested (never FINE) since a ~150m
+      geohash cell is the actual precision used; granting FINE would buy
+      nothing here. Read from ScanForegroundService's foreground-service
+      context, which Android exempts from the ACCESS_BACKGROUND_LOCATION
+      requirement (that permission only gates apps accessing location while
+      truly backgrounded, not an active foreground service with a
+      notification).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".service.ScanForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+    </application>
+
+</manifest>
